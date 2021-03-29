@@ -23,6 +23,7 @@ import pygeoif
 import tkinter
 from tkinter import filedialog
 
+
 ventana= tkinter.Tk()
 ventana.geometry("600x600")
 #implementacion de las funciones que implementaran la ruta actual de los archivos
@@ -35,6 +36,19 @@ def abrircapa():
     Text2.insert(0,filepathcapa)
     return (filepathcapa)
 
+def plotBand(product, band, vmin, vmax):
+    band = product.getBand(band)
+    w = band.getRasterWidth()
+    h = band.getRasterHeight()
+    print(w, h)
+    band_data = np.zeros(w * h, np.float32)
+    band.readPixels(0, 0, w, h, band_data)
+    band_data.shape = h, w
+    width = 12
+    height = 12
+    plt.figure(figsize=(width, height))
+    imgplot = plt.imshow(band_data, cmap=plt.cm.binary, vmin=vmin, vmax=vmax)
+    return imgplot
 
 def preproceso():
     path_to_sentinel_data = Text1.get()
@@ -122,7 +136,30 @@ def preproceso():
     speckle_filter_tc = GPF.createProduct("Terrain-Correction", parameters, speckle_filter)
     plotBand(speckle_filter_tc, 'Sigma0_VV', 0, 0.1)
    
+def cambioumbral():
+    parameters = HashMap()
+    BandDescriptor = snappy.jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
+    targetBand = BandDescriptor()
+    targetBand.name = 'Sigma0_VV_Flooded'
+    targetBand.type = 'uint8'
+    targetBand.expression = '(Sigma0_VV <'+Text3.get()+') ? 1 : 0'
+    targetBands = snappy.jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
+    targetBands[0] = targetBand
+    parameters.put('targetBands', targetBands)
+    flood_mask = GPF.createProduct('BandMaths', parameters, speckle_filter_tc)
+    guardarparametro(flood_mask)
+    plotBand(flood_mask, 'Sigma0_VV_Flooded', 0, 1)
     
+    
+def guardarparametro(flood_mask):
+    return flood_mask
+
+
+def generarimagen():
+    ProductIO.writeProduct(guardarparametro(), "data/final_mask", 'GeoTIFF')
+    os.path.exists("data/final_mask.tif")
+    
+###Graficos 
 lbl1=   tkinter.Label(ventana, text="¿En donde se encuentra la imagen?").pack()
 boton1= tkinter.Button(ventana, text="Abrir Imagen", command=abririmagen).pack()
 Text1= tkinter.Text(ventana,width=50,height=1).pack()
@@ -133,6 +170,9 @@ Text2= tkinter.Text(ventana,width=50,height=1).pack()
 boton3=tkinter.Button(ventana, text="Procesar Imagen", command=preproceso).pack()
 lbl2=tkinter.Label(ventana, text="Defina umbral para mascara de agua").pack()
 Text3= tkinter.Text(ventana,width=50,height=1).pack()
+
+boton4=tkinter.Button(ventana, text="Defina Umbral", command=cambioumbral).pack()
+boton5=tkinter.Button(ventana, text="Generar ", command=generarImagen().pack()
 
 
 
